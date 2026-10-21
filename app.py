@@ -1,10 +1,9 @@
 """
 Plataforma de Analise e Projecao de Receitas Tributarias Municipais com
-Aprendizado de Maquina - MVP
+Aprendizado de Maquina
 
 Projeto Integrador IV - UNIVESP - Grupo 6
-Fonte dos dados brutos: Tribunal de Contas do Estado de Sao Paulo (TCE-SP),
-Portal de Dados Abertos, conjunto "Receitas" (2021-2025).
+Dados brutos: TCE-SP, Portal de Dados Abertos, conjunto "Receitas" (2021-2025).
 """
 import sys
 from pathlib import Path

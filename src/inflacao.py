@@ -1,18 +1,16 @@
 """
-Ajuste por inflacao da série "outras receitas não tributárias".
+Ajuste por inflacao da serie "outras receitas nao tributarias".
 
-Fonte dos dados: Banco Central do Brasil, Sistema Gerenciador de Séries
-Temporais (SGS), série 433 - IPCA, variação mensal (%). Dados oficiais do
-IBGE consolidados pelo BCB. Disponível em:
+Os dados vem do Banco Central (SGS, serie 433 - IPCA variacao mensal, dados
+do IBGE consolidados pelo BCB):
 https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json
-Acesso em: 22 set. 2026.
+(acesso em 22 set. 2026)
 
-O arquivo data/processed/ipca_mensal.csv guarda uma copia local dessa serie
-(variação percentual mensal do IPCA) usada para converter valores nominais de
-"outras receitas não tributárias" em valores a preços constantes de um mês de
-referência, e para projetar essas mesmas receitas nos meses futuros aplicando
-apenas a variação de preços observada no periodo mais recente (sem uso de
-aprendizado de maquina, conforme escopo definido para essa categoria).
+data/processed/ipca_mensal.csv guarda uma copia local dessa serie. Usamos
+ela pra duas coisas: deflacionar "outras receitas" pra preco constante de um
+mes de referencia, e projetar essa mesma receita nos meses futuros so
+aplicando a variacao de preco mais recente - sem aprendizado de maquina,
+que nao faz parte do escopo definido pra essa categoria.
 """
 from pathlib import Path
 import pandas as pd
@@ -31,8 +29,8 @@ def carregar_ipca() -> pd.DataFrame:
 
 def deflacionar_para_referencia(valores: pd.DataFrame, ano_col="ano", mes_col="mes",
                                  valor_col="outras", ano_ref: int = None, mes_ref: int = None) -> pd.Series:
-    """Converte 'valor_col' (nominal, em cada ano/mes) para reais do mes de
-    referencia (o mais recente disponivel na serie do IPCA, por padrao)."""
+    """Converte 'valor_col' (nominal, por ano/mes) pra reais do mes de
+    referencia - por padrao, o mes mais recente que tiver na serie do IPCA."""
     ipca = carregar_ipca()
     if ano_ref is None or mes_ref is None:
         ultima = ipca.iloc[-1]
@@ -50,9 +48,9 @@ def deflacionar_para_referencia(valores: pd.DataFrame, ano_col="ano", mes_col="m
 
 
 def projetar_outras_receitas(historico_mensal: pd.Series, meses_futuros: int) -> pd.Series:
-    """Projeta a serie 'outras receitas nao tributarias' apenas pela inflacao:
-    replica a media dos ultimos 12 meses em termos reais e aplica a variacao
-    media mensal do IPCA observada no mesmo periodo para os meses futuros."""
+    """Projeta 'outras receitas nao tributarias' so pela inflacao: pega a
+    media dos ultimos 12 meses e aplica a variacao media mensal do IPCA do
+    mesmo periodo pra frente."""
     ipca = carregar_ipca()
     variacao_media = ipca["ipca_variacao_pct"].tail(12).mean() / 100
     base = historico_mensal.tail(12).mean()

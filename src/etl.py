@@ -1,55 +1,42 @@
 """
-ETL das receitas municipais (TCE-SP - Portal de Dados Abertos, 2021-2025).
+ETL das receitas municipais do TCE-SP (Portal de Dados Abertos, 2021-2025).
 
-Classifica cada lancamento de receita orcamentaria, segundo a Natureza de
-Receita do MCASP/STN, em tres grupos:
+A ideia e pegar cada lancamento de receita orcamentaria e classificar em 3
+grupos, de acordo com a Natureza de Receita do MCASP/STN:
 
-  - tributaria                   : receita tributaria propria do municipio -
-                                    Impostos, Taxas e Contribuicoes de Melhoria
-                                    (IPTU, ISS, ITBI, IRRF na fonte, taxas,
-                                    contribuicao de melhoria), incluindo Divida
-                                    Ativa e multas/juros desses tributos, mais a
-                                    Contribuicao para o Custeio do Servico de
-                                    Iluminacao Publica (COSIP/CIP, art. 149-A CF)
-  - transferencia_constitucional : cotas-parte constitucionais devidas aos
-                                    municipios (Participacao na Receita da
-                                    Uniao/dos Estados: FPM, ITR, IOF-Ouro,
-                                    ICMS, IPVA, IPI-Exportacao, CIDE-Combustiveis)
-  - outras                       : demais receitas correntes/capital regulares
-                                    (patrimonial, servicos, contribuicoes
-                                    sociais/economicas, SUS/FNDE/FUNDEB,
-                                    agropecuaria, industrial, multas,
-                                    indenizacoes etc.)
+  - tributaria: impostos, taxas e contribuicao de melhoria do proprio
+    municipio (IPTU, ISS, ITBI, IRRF na fonte...), com Divida Ativa e
+    multas/juros desses tributos, mais a COSIP (art. 149-A da CF)
+  - transferencia_constitucional: FPM, ITR, IOF-Ouro, ICMS, IPVA,
+    IPI-Exportacao e CIDE-Combustiveis - repasses que o municipio recebe por
+    determinacao constitucional
+  - outras: o resto da receita corrente/capital "normal" (patrimonial,
+    servicos, contribuicoes, SUS/FNDE/FUNDEB, agropecuaria, multas etc.)
 
-E descarta (nao entram em nenhum total) as receitas nao recorrentes: emendas
-parlamentares individuais, transferencias de convenios, alienacao de bens
-(leiloes), operacoes de credito, amortizacao de emprestimos, integralizacao
-de capital social e lancamentos Intra-OFSS (movimentacao interna entre
-orgaos do mesmo ente, sem ingresso real de recursos).
+Emendas parlamentares, convenios, venda de bens, operacoes de credito,
+amortizacao de emprestimos e lancamentos Intra-OFSS ficam de fora de tudo -
+nao sao receita recorrente (ou, no caso do Intra-OFSS, nem e ingresso real
+de recursos, e sim movimentacao interna entre orgaos do mesmo ente).
 
-Os arquivos de 2021 e de 2022-2025 usam layouts de coluna diferentes para o
-detalhamento da receita (rubrica/alinea/subalinea x d1/dd2/d3/tipo), mas os
-tres primeiros niveis da natureza de receita (categoria/subcategoria/fonte)
-sao estaveis nos dois layouts, assim como o texto descritivo dos niveis mais
-detalhados (ex.: "Participacao na Receita da Uniao", "Emendas Parlamentares",
-"Convenio"). A classificacao usa os codigos estaveis nos tres primeiros
-niveis e busca por texto nos niveis de detalhe, o que funciona igualmente
-para os dois layouts.
+Os arquivos de 2021 usam um layout de colunas diferente dos de 2022 em
+diante (rubrica/alinea/subalinea vs d1/dd2/d3/tipo), mas os 3 primeiros
+niveis da natureza de receita (categoria/subcategoria/fonte) sao iguais nos
+dois, e o texto descritivo dos niveis mais detalhados tambem bate (ex.:
+"Participacao na Receita da Uniao", "Emendas Parlamentares", "Convenio").
+Por isso a classificacao usa os codigos estaveis nesses 3 primeiros niveis e
+cai pra busca de texto so nos niveis de detalhe, o que funciona nos dois
+layouts sem precisar de regra separada pra cada ano.
 
-Alem da classificacao em tres grupos, cada lancamento de receita tributaria
-propria e de transferencia constitucional e tambem rotulado com o tributo
-especifico a que se refere (IPTU, ISS, ITBI, IRRF, Taxas, Contribuicao de
-Melhoria, COSIP; FPM, ITR, IOF-Ouro, ICMS, IPVA, IPI-Exportacao,
-CIDE-Combustiveis), por busca textual nos niveis de detalhe mais profundos da
-Natureza de Receita (rubrica/alinea/subalinea em 2021; d1/dd2/d3 em
-2022-2025), ja que o nivel de codificacao desses tributos especificos difere
-entre os dois layouts, mas a descricao textual e equivalente nos dois.
+Alem do grupo, cada lancamento tributario ou de transferencia constitucional
+tambem ganha um rotulo do tributo especifico (IPTU, ISS, FPM, ICMS etc.),
+de novo por busca de texto nos niveis mais detalhados - a codificacao desse
+nivel muda entre os layouts, mas a descricao em texto e a mesma.
 
-Saida:
+Gera dois arquivos:
   data/processed/receitas_agregadas.csv
-    Colunas: municipio, ano, mes, tributaria, transferencia_constitucional, outras
+    (municipio, ano, mes, tributaria, transferencia_constitucional, outras)
   data/processed/receitas_por_tributo.csv
-    Colunas: municipio, ano, mes, categoria, tributo, valor
+    (municipio, ano, mes, categoria, tributo, valor)
 """
 import zipfile
 import io
@@ -74,10 +61,9 @@ INTRA_OFSS_CATEGORIA = {"70000000", "80000000"}
 EXCLUIDA_SUBCATEGORIA = {"21000000", "22000000", "23000000"}
 EXCLUIDA_FONTE = {"29100000"}
 TRIBUTARIA_SUBCATEGORIA = {"11000000"}
-# Contribuicao para o Custeio do Servico de Iluminacao Publica (COSIP/CIP), art.
-# 149-A da Constituicao Federal: e uma contribuicao (subcategoria 12000000), nao
-# um imposto, mas e receita tributaria propria do municipio, por isso e somada
-# ao grupo "tributaria" mesmo estando fora do codigo 11000000.
+# COSIP (art. 149-A da CF) e uma contribuicao, nao um imposto - por isso fica
+# fora do codigo 11000000 - mas e receita propria do municipio igual, entao
+# entra no grupo "tributaria" tambem.
 TRIBUTARIA_FONTE_EXTRA = {"12400000"}
 
 
@@ -119,7 +105,7 @@ def classificar_chunk(chunk: pd.DataFrame, detalhe_cols: list) -> pd.Series:
     e_transferencia = subcategoria.isin({"17000000", "24000000"})
     classe[e_transferencia & contem_participacao] = "transferencia_constitucional"
 
-    # exclusoes (sobrescrevem qualquer classificacao anterior)
+    # essas exclusoes tem prioridade sobre qualquer classificacao acima
     excluida = (
         categoria.isin(INTRA_OFSS_CATEGORIA)
         | subcategoria.isin(EXCLUIDA_SUBCATEGORIA)
@@ -132,10 +118,11 @@ def classificar_chunk(chunk: pd.DataFrame, detalhe_cols: list) -> pd.Series:
 
 
 def classificar_tributo(chunk: pd.DataFrame, detalhe_cols: list, classe: pd.Series, fonte: pd.Series) -> pd.Series:
-    """Rotula cada lancamento de 'tributaria'/'transferencia_constitucional' com
-    o tributo especifico, por busca textual (robusta aos dois layouts de
-    coluna). Mantem 'outras' como um unico rotulo agregado, pois esse grupo e
-    projetado pelo Modelo Media (t-1), sem discriminacao por tributo."""
+    """Pega cada lancamento de 'tributaria'/'transferencia_constitucional' e
+    rotula com o tributo especifico, via busca de texto (funciona nos dois
+    layouts de coluna). 'outras' fica como um unico rotulo agregado mesmo,
+    ja que esse grupo e projetado pelo Modelo Media (t-1) sem discriminar
+    por tributo."""
     texto = chunk[detalhe_cols].fillna("").agg(" ".join, axis=1)
     texto = texto.map(_sem_acento).str.upper()
 
