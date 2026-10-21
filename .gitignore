@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Dados brutos do TCE-SP (grandes, baixar do Portal de Dados Abertos - ver README)
+receitas-*.zip
+
+# Documentos academicos e termos (dados pessoais - nao vao para o repositorio publico)
+*.docx
+*.pdf
