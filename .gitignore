@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.claude/settings.local.json
 
 # Dados brutos do TCE-SP (grandes, baixar do Portal de Dados Abertos - ver README)
 receitas-*.zip
